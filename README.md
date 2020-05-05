@@ -11,13 +11,17 @@ s3mothball is an archival tool to:
 
     pip install https://github.com/harvard-lil/s3mothball/archive/master.zip#egg=s3mothball
     
+## System requirements
+
+s3mothball requires Python 3.
+
 ## Why s3mothball?
 
 When working with smaller files in S3 Glacier the costs of depositing, retrieving, and tagging 
 files are often larger than the cost of storage itself.
 
-For example, as of May 2020 storing 1TB on S3 Glacier Deep Archive costs $1/month. But if that 1TB
-consisted of one million 1MB files, it would cost:
+For example, as of May, 2020, storing 1TB on S3 Glacier Deep Archive costs $1/month. But if that 1TB
+consists of one million 1MB files, it will cost:
 
 * $50 (four years' storage cost) to transition the million objects from standard storage
 * $25 (two years' storage cost) to transition the million objects back to standard storage
@@ -107,3 +111,13 @@ complete list of supported URL formats.
 
 The tar path does not currently support compression (`my-files.tar.gz` would not work), though in principle it could.
 
+## Resource requirements
+
+s3mothball attempts to be efficient with time, disk, RAM, and API usage. It should have this performance when archiving:
+
+* Speed limited by the speed Python can write consecutive files to tar.
+* Constant RAM usage regardless of number of objects archived (less than 200MB in one test).
+* Constant disk usage regardless of number of objects archived, if .tar is streamed back to S3. Because fetch is
+  multithreaded, max disk usage is the size of 8 of the objects being archived. This disk usage could in principle
+  be avoided at the cost of slower archiving.
+* Minimal S3 API queries -- one ListObjects per thousand files archived, and one GetObject per file archived. 
