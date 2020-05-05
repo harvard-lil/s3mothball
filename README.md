@@ -79,8 +79,7 @@ You can also perform the same validation later:
 
     $ s3mothball validate s3://my-attic/manifests/my-bucket/my-files.tar.csv s3://my-attic/files/my-bucket/my-files.tar
 
-Once you are satisfied with the archived version, you can delete the original files. By default delete will
-print what files would be deleted but will not actually delete them:
+Once you are satisfied with the archived version, you can delete the original files:
 
     $ s3mothball delete s3://my-attic/manifests/my-bucket/my-files.tar.csv
     Deleting objects listed in s3://my-attic/manifests/my-bucket/my-files.tar.csv
