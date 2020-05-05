@@ -9,7 +9,7 @@ def write_file(s3, bucket, key, contents):
     return {
         'bucket': bucket,
         'key': key,
-        'contents': contents,
+        'contents': contents.encode('utf8'),
         'etag': headers['etag'].strip('"'),
         'modified': str_to_rfc_1123_datetime(headers['last-modified']).replace(tzinfo=timezone.utc),
         'size': headers['content-length'],

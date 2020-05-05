@@ -1,13 +1,23 @@
 import concurrent.futures
 import copy
+import csv
 import hashlib
+import itertools
 import tarfile
 from io import BytesIO
 from pathlib import Path
+from shutil import copyfileobj
+from tempfile import SpooledTemporaryFile
+
+import boto3
+from smart_open import open
+from smart_open.s3 import parse_uri
+
+from s3mothball.settings import SPOOLED_FILE_SIZE, THREADS
 
 
 class HashingFile:
-    """ File wrapper that stores a hash of the read or written data. """
+    """ File wrapper that stores a hash and size of the read or written data. """
     def __init__(self, source, hash_name='md5'):
         self._sig = hashlib.new(hash_name)
         self._source = source
@@ -34,8 +44,8 @@ class HashingFile:
 
 
 class LoggingTarFile(tarfile.TarFile):
+    """ TarFile subclass that sets tarinfo.offset and tarinfo.offset_data on records when written. """
     def addfile(self, tarinfo, fileobj=None):
-        """ Set tarinfo.offset and tarinfo.offset_data. """
         tarinfo = copy.copy(tarinfo)
         buf = tarinfo.tobuf(self.format, self.encoding, self.errors)
         tarinfo.offset = self.offset
@@ -123,25 +133,73 @@ def make_parent_dir(path):
     Path(path).parent.mkdir(exist_ok=True, parents=True)
 
 
-def threaded_queue(func, items, max_workers):
+def threaded_queue(func, items):
     """
         Create a thread pool to call func with each argument list in items, yielding each result as it is ready.
-        Implements backpressure; will not work on more than max_workers items at a time.
+        Implements backpressure: will not work on more than THREADS items at a time.
         Return order is not guaranteed.
     """
     items = iter(items)
     futures = set()
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=THREADS) as executor:
         def queue_item():
             try:
                 item = next(items)
             except StopIteration:
                 return
             futures.add(executor.submit(func, *item))
-        for i in range(max_workers):
+        for i in range(THREADS):
             queue_item()
         while futures:
             future = concurrent.futures.wait(futures, return_when=concurrent.futures.FIRST_COMPLETED)[0].pop()
             yield future.result()
             futures.remove(future)
             queue_item()
+
+
+def write_dicts_to_csv(manifest_path, rows):
+    with open(manifest_path, 'w', newline='') as out:
+        writer = csv.DictWriter(out, fieldnames=list(rows[0].keys()))
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def read_dicts_from_csv(manifest_path):
+    with open(manifest_path, newline='') as f:
+        for row in csv.DictReader(f):
+            yield row
+
+
+def list_objects(s3_url):
+    source_path_parsed = parse_uri(s3_url)
+    bucket = boto3.resource('s3').Bucket(source_path_parsed['bucket_id'])
+    key = source_path_parsed['key_id'].rstrip('/')
+    if key:
+        key += '/'
+    return bucket.objects.filter(Prefix=key)
+
+
+def load_object(obj, temp_dir):
+    """
+        Load S3 object `obj` into SpooledTemporaryFile `body` stored in `temp_dir`.
+        Return (obj, response, body).
+    """
+    response = obj.get()
+    body = SpooledTemporaryFile(SPOOLED_FILE_SIZE, dir=temp_dir)
+    copyfileobj(response['Body'], body)
+    body.seek(0)
+    return obj, response, body
+
+
+def chunks(iterable, size=1000):
+    """
+        Iterate over iterable in chunks of size `size`.
+
+        >>> assert list(chunks([1,2,3,4,5]), 2) == [[1,2], [3,4], [5]]
+    """
+    it = iter(iterable)
+    while True:
+        chunk = tuple(itertools.islice(it, size))
+        if not chunk:
+            break
+        yield chunk

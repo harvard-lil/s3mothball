@@ -1,6 +1,8 @@
 import os
+from collections import defaultdict
 
 import boto3
+from botocore.endpoint import Endpoint
 import pytest
 from moto import mock_s3
 
@@ -9,7 +11,7 @@ from tests.helpers import write_file
 
 @pytest.fixture
 def aws_credentials():
-    """Mocked AWS Credentials for moto."""
+    # via https://github.com/spulec/moto#example-on-usage
     os.environ['AWS_ACCESS_KEY_ID'] = 'testing'
     os.environ['AWS_SECRET_ACCESS_KEY'] = 'testing'
     os.environ['AWS_SECURITY_TOKEN'] = 'testing'
@@ -59,3 +61,12 @@ def files(s3, source_bucket):
     return [write_file(s3, source_bucket, entry[0], entry[1]) for entry in files]
 
 
+@pytest.fixture
+def boto_calls(monkeypatch):
+    boto_calls = defaultdict(int)
+    real_make_request = Endpoint.make_request
+    def mock_make_request(self, operation_model, *args, **kwargs):
+        boto_calls[operation_model.name] += 1
+        return real_make_request(self, operation_model, *args, **kwargs)
+    monkeypatch.setattr(Endpoint, "make_request", mock_make_request)
+    yield boto_calls
