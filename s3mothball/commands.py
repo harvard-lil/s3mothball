@@ -105,4 +105,8 @@ def main():
     create_parser.set_defaults(func=extract_command)
 
     args = parser.parse_args()
-    args.func(args, parser)
+    try:
+        args.func(args, parser)
+    except AttributeError:
+        parser.print_help()
+        parser.exit()
