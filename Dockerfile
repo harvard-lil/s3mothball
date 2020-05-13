@@ -15,4 +15,4 @@ ENV LANG=C.UTF-8 \
 RUN apt-get update \
     && apt-get install -y python3-pip
 
-RUN pip3 install https://github.com/harvard-lil/s3mothball/archive/master.zip#egg=s3mothball
+RUN pip3 install https://github.com/harvard-lil/s3mothball/archive/master.zip#egg=s3mothball --ignore-installed
