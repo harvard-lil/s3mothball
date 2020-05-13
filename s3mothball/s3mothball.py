@@ -148,8 +148,10 @@ def delete_files(manifest_path, dry_run=True):
                         'Quiet': False,
                     }
                 )
-                keys['deleted'].extend(o['Key'] for o in response['Deleted'])
-                keys['errors'].extend(o['Key'] for o in response['Errors'])
+                if 'Deleted' in response:
+                    keys['deleted'].extend(o['Key'] for o in response['Deleted'])
+                if 'Errors' in response:
+                    keys['errors'].extend(o['Key'] for o in response['Errors'])
     return buckets
 
 
