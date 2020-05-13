@@ -10,7 +10,7 @@ from s3mothball.s3mothball import write_tar, validate_tar, delete_files, open_ar
 
 def do_validate(args):
         print("Validating %s against %s" % (args.tar_path, args.manifest_path))
-        validate_tar(args.manifest_path, args.tar_path, args.strip_prefix, progress_bar=args.progress_bar)
+        validate_tar(args.manifest_path, args.tar_path, progress_bar=args.progress_bar)
 
 
 def do_delete(args):
@@ -82,16 +82,14 @@ def main():
 
     # validate
     create_parser = subparsers.add_parser('validate', help='Validate an existing tar archive and manifest.')
-    create_parser.add_argument('manifest_path', help='Path or S3 URL for manifest file')
-    create_parser.add_argument('tar_path', help='Path or S3 URL for tar file')
-    create_parser.add_argument('--strip-prefix', help='optional prefix to strip from inventory file when writing tar', default='')
+    create_parser.add_argument('manifest_path', help='Path or URL for manifest file')
+    create_parser.add_argument('tar_path', help='Path or URL for tar file')
     create_parser.set_defaults(func=validate_command)
 
     # delete
     create_parser = subparsers.add_parser('delete', help='Delete original files listed in manifest.')
-    create_parser.add_argument('manifest_path', help='Path or URL for output manifest file')
-    create_parser.add_argument('tar_path', nargs='?', help='Path or URL for output tar file')
-    create_parser.add_argument('--strip-prefix', help='optional prefix to strip from inventory file when writing tar; needed if validating', default='')
+    create_parser.add_argument('manifest_path', help='Path or URL for manifest file')
+    create_parser.add_argument('tar_path', nargs='?', help='Path or URL for tar file')
     create_parser.add_argument('--no-validate', dest='validate', action='store_false', help="Don't validate tar against manifest before deleting")
     create_parser.add_argument('--force', dest='force', action='store_true', help="Delete without asking")
     create_parser.set_defaults(func=delete_command, validate=True, force=False)

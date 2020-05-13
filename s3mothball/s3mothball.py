@@ -57,7 +57,9 @@ def write_tar(archive_url, manifest_path, tar_path, strip_prefix=None, progress_
                 ('TarOffset', member.offset),
                 ('TarDataOffset', member.offset_data),
                 ('TarSize', member.size),
-            )))
+            ) + ((
+                ('TarStrippedPrefix', strip_prefix),
+            ) if strip_prefix else tuple())))
             if response['ContentLength'] != member.size:
                 raise ValueError("Object size mismatch: %s" % obj.key)
 
@@ -67,7 +69,7 @@ def write_tar(archive_url, manifest_path, tar_path, strip_prefix=None, progress_
     write_dicts_to_csv(manifest_path, files_written)
 
 
-def validate_tar(manifest_path, tar_path, strip_prefix='', progress_bar=False):
+def validate_tar(manifest_path, tar_path, progress_bar=False):
     """
         Verify that all items listed in manifest_path can be read from tar_path, and all items in tar_path are listed
         in manifest_path, with matching hashes and file names.
@@ -84,6 +86,7 @@ def validate_tar(manifest_path, tar_path, strip_prefix='', progress_bar=False):
             if not csv_entries:
                 raise ValueError("Not enough files found in manifest. Looking for: %s" % tarinfo.name)
             csv_entry = csv_entries.pop(0)
+            strip_prefix = csv_entry.get('TarStrippedPrefix', '')
             if tarinfo.name != csv_entry['Key'][len(strip_prefix):]:
                 raise ValueError("Mismatched keys: tar has %s, manifest has %s" % (tarinfo.name, csv_entry['Key'][len(strip_prefix):]))
             if tarinfo.offset != int(csv_entry['TarOffset']):

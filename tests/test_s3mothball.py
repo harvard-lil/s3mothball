@@ -51,6 +51,7 @@ def test_write_tar(s3, files, source_bucket, archive_url, manifest_path, tar_pat
                 "TarOffset": str(entry['offset']),
                 "TarDataOffset": str(entry['offset_data']),
                 "TarSize": str(entry['size']),
+                "TarStrippedPrefix": strip_prefix,
             }
             for entry in files
         ]
@@ -68,7 +69,7 @@ def test_validate_tar(s3, files, source_bucket, archive_url, manifest_path, tar_
     boto_calls.clear()
 
     # validates successfully
-    validate_tar(manifest_path, tar_path, strip_prefix=strip_prefix)
+    validate_tar(manifest_path, tar_path)
 
     # no unnecessary boto calls
     # this should be only 2 calls -- see https://github.com/RaRe-Technologies/smart_open/issues/494
@@ -82,28 +83,28 @@ def test_validate_tar(s3, files, source_bucket, archive_url, manifest_path, tar_
     # manifest missing a line
     write_dicts_to_csv(manifest_path, manifest[:-1])
     with pytest.raises(ValueError, match=r"Not enough files found in manifest"):
-        validate_tar(manifest_path, tar_path, strip_prefix=strip_prefix)
+        validate_tar(manifest_path, tar_path)
 
     # manifest has extra line
     write_dicts_to_csv(manifest_path, manifest + [manifest[-1]])
     with pytest.raises(ValueError, match=r"Manifest files not found in tar"):
-        validate_tar(manifest_path, tar_path, strip_prefix=strip_prefix)
+        validate_tar(manifest_path, tar_path)
 
     # manifest with wrong hashes
     write_dicts_to_csv(manifest_path, [{**m, 'TarMD5': 'foo'} for m in manifest])
     with pytest.raises(ValueError, match=r"File hash mismatch"):
-        validate_tar(manifest_path, tar_path, strip_prefix=strip_prefix)
+        validate_tar(manifest_path, tar_path)
 
     # manifest with wrong names
     write_dicts_to_csv(manifest_path, [{**m, 'Key': m['Key'] + 'abc'} for m in manifest])
     with pytest.raises(ValueError, match=r"Mismatched keys"):
-        validate_tar(manifest_path, tar_path, strip_prefix=strip_prefix)
+        validate_tar(manifest_path, tar_path)
 
     # detect tar corrupted
     with open(tar_path, 'wb', ignore_ext=True) as f:
         f.write(b'ABCD'+tar_contents)
     with pytest.raises(tarfile.ReadError):
-        validate_tar(manifest_path, tar_path, strip_prefix=strip_prefix)
+        validate_tar(manifest_path, tar_path)
 
 
 def test_delete_files(s3, files, source_bucket, archive_url, manifest_path, tar_path, boto_calls):

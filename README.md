@@ -87,6 +87,7 @@ Once you are satisfied with the archived version, you can delete the original fi
     Delete objects? [y/N] y
      * Deleted 1000 items from s3://my-bucket/my-files
 
+
 If you later want to fetch an individual file like `s3://my-bucket/my-files/0001.xml`, you can do so with `extract`:
 
     $ s3mothball extract s3://my-attic/manifests/my-bucket/my-files.tar.csv \
@@ -97,6 +98,12 @@ If you later want to fetch an individual file like `s3://my-bucket/my-files/0001
 You would likely set up lifecycle rules to transition files in s3://my-attic/files/ to Glacier storage.
 `$ s3mothball extract` would then require you to retrieve a particular tar file prior to extraction, or at least the
 range within that tar referred to by the manifest.
+
+*Warning:* archival, validation, and deletion can be done in one move with `s3mothball archive --delete`. However, this
+command is not idempotent. If it fails partway through archival it can be run again, but if it fails partway through
+deletion then calling it again will result in data loss. Instead `s3mothball delete` must be called to complete the job.
+This means `s3mothball archive --delete` is not a good idea for unsupervised bulk jobs, which should be run as a series
+of idempotent `archive` calls followed by a series of idempotent `delete` jobs.
 
 ## Path formats
 

@@ -195,7 +195,7 @@ def chunks(iterable, size=1000):
     """
         Iterate over iterable in chunks of size `size`.
 
-        >>> assert list(chunks([1,2,3,4,5]), 2) == [[1,2], [3,4], [5]]
+        >>> assert list(chunks([1,2,3,4,5], 2)) == [(1,2), (3,4), (5,)]
     """
     it = iter(iterable)
     while True:
