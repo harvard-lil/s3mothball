@@ -203,3 +203,27 @@ def chunks(iterable, size=1000):
         if not chunk:
             break
         yield chunk
+
+
+def peek(iterator):
+    """
+        Peek at next item from iterator.
+
+        >>> item, iterator = peek(iter(range(3)))
+        >>> assert item == 0
+        >>> assert list(iterator) == [0, 1, 2]
+    """
+    item = next(iterator)
+    return item, itertools.chain([item], iterator)
+
+
+def exists(path):
+    """
+        Check for file/URL existence with smart_open.
+        Recommended method at https://github.com/RaRe-Technologies/smart_open/issues/303
+    """
+    try:
+        with open(path):
+            return True
+    except IOError:
+        return False

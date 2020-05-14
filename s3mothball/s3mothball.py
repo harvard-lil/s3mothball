@@ -10,25 +10,36 @@ from smart_open.s3 import parse_uri
 from tqdm import tqdm
 
 from s3mothball.helpers import HashingFile, LoggingTarFile, make_parent_dir, TeeFile, threaded_queue, OffsetSizeFile, \
-    write_dicts_to_csv, read_dicts_from_csv, list_objects, load_object, chunks
+    write_dicts_to_csv, read_dicts_from_csv, list_objects, load_object, chunks, exists, peek
 from s3mothball.settings import SPOOLED_FILE_SIZE
 
 
-def write_tar(archive_url, manifest_path, tar_path, strip_prefix=None, progress_bar=False):
+def write_tar(archive_url, manifest_path, tar_path, strip_prefix=None, progress_bar=False, overwrite=False):
     """
         Write all objects from archive_url to tar_path.
         Write list of objects to manifest_path.
     """
-    files_written = []
+    if not overwrite:
+        if exists(tar_path):
+            raise IOError("%s already exists." % tar_path)
+        if exists(manifest_path):
+            raise IOError("%s already exists." % manifest_path)
+
+    # get iterator of items to tar, and check that it includes at least one item
+    objects = list_objects(archive_url)
+    try:
+        _, objects = peek(iter(objects))
+    except StopIteration:
+        raise IOError("No objects found at %s" % archive_url)
 
     # write tar
     make_parent_dir(tar_path)
+    files_written = []
     with open(tar_path, 'wb', ignore_ext=True) as tar_out, \
          LoggingTarFile.open(fileobj=tar_out, mode='w|') as tar, \
          TemporaryDirectory() as temp_dir:
 
-        # get iterator of items to tar, loaded in background threads
-        objects = list_objects(archive_url)
+        # load object contents in background threads
         items = threaded_queue(load_object, ((obj, temp_dir) for obj in objects))
 
         # tar each item

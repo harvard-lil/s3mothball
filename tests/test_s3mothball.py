@@ -19,7 +19,7 @@ def test_write_tar(s3, files, source_bucket, archive_url, manifest_path, tar_pat
     assert boto_calls == {
         'CompleteMultipartUpload': 2,
         'CreateMultipartUpload': 2,
-        'GetObject': 2,
+        'GetObject': 4,
         'ListObjects': 1,
         'UploadPart': 2
     }
@@ -59,6 +59,29 @@ def test_write_tar(s3, files, source_bucket, archive_url, manifest_path, tar_pat
         assert entries == expected_entries
 
 
+def test_write_tar_overwrite(s3, files, source_bucket, archive_url, manifest_path, tar_path, boto_calls):
+    from s3mothball.s3mothball import write_tar  # ensure mock is in place before importing functions to test
+
+    for path in (manifest_path, tar_path):
+        # write existing file
+        with open(path, 'w') as f:
+            f.write('contents')
+
+        # failed write
+        with pytest.raises(IOError, match=r"already exists"):
+            write_tar(archive_url, manifest_path, tar_path)
+
+        # successful write
+        write_tar(archive_url, manifest_path, tar_path, overwrite=True)
+
+
+def test_write_tar_no_files(s3, source_bucket, archive_url, manifest_path, tar_path, boto_calls):
+    from s3mothball.s3mothball import write_tar  # ensure mock is in place before importing functions to test
+
+    with pytest.raises(IOError, match=r"No objects found"):
+        write_tar(archive_url, manifest_path, tar_path)
+
+
 def test_validate_tar(s3, files, source_bucket, archive_url, manifest_path, tar_path, boto_calls):
     from s3mothball.s3mothball import write_tar, validate_tar  # ensure mock is in place before importing functions to test
 
@@ -82,12 +105,12 @@ def test_validate_tar(s3, files, source_bucket, archive_url, manifest_path, tar_
 
     # manifest missing a line
     write_dicts_to_csv(manifest_path, manifest[:-1])
-    with pytest.raises(ValueError, match=r"Not enough files found in manifest"):
+    with pytest.raises(ValueError, match=r"Not enough files found in manifest|Mismatched keys"):  # error string depends on thread order
         validate_tar(manifest_path, tar_path)
 
     # manifest has extra line
     write_dicts_to_csv(manifest_path, manifest + [manifest[-1]])
-    with pytest.raises(ValueError, match=r"Manifest files not found in tar"):
+    with pytest.raises(ValueError, match=r"Manifest files not found in tar|Mismatched keys"):  # error string depends on thread order
         validate_tar(manifest_path, tar_path)
 
     # manifest with wrong hashes
