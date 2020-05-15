@@ -74,7 +74,7 @@ def extract_command(args, parser):
             copyfileobj(f, sys.stdout.buffer)
 
 
-def main():
+def main(args=None):
     parser = argparse.ArgumentParser(description='Archive files on S3.')
     parser.add_argument('--no-progress', dest='progress_bar', action='store_false', help="Don't show progress bar when archiving and validating")
     parser.set_defaults(progress_bar=True)
@@ -114,9 +114,9 @@ def main():
     create_parser.add_argument('--out', help='optional output path; default stdout')
     create_parser.set_defaults(func=extract_command)
 
-    args = parser.parse_args()
-    try:
+    args = parser.parse_args(args)
+    if hasattr(args, 'func'):
         args.func(args, parser)
-    except AttributeError:
+    else:
         parser.print_help()
         parser.exit()
