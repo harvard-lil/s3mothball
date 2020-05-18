@@ -44,6 +44,10 @@ def write_tar(archive_url, manifest_path, tar_path, strip_prefix=None, progress_
 
         # tar each item
         for obj, response, body in tqdm(items, disable=not progress_bar):
+            if obj.key.endswith('/'):
+                raise ValueError(
+                    "Invalid object key %s. s3mothball cannot handle object keys ending in /."
+                    "See https://github.com/harvard-lil/s3mothball/issues/5" % obj.key)
             body = HashingFile(body)
             tar_info = TarInfo()
             tar_info.size = int(response['ContentLength'])
