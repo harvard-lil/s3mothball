@@ -8,6 +8,7 @@ from io import BytesIO
 from pathlib import Path
 from shutil import copyfileobj
 from tempfile import SpooledTemporaryFile
+from time import sleep
 
 import boto3
 from smart_open import open
@@ -227,3 +228,17 @@ def exists(path):
             return True
     except IOError:
         return False
+
+
+def retry_on_exception(func, args=[], kwargs={}, exception=Exception, attempts=8):
+    """
+        Retry func(*args, **kwargs) with exponential backoff, starting from 100ms delay.
+    """
+    for attempt in range(attempts):
+        try:
+            return func(*args, **kwargs)
+        except exception:
+            if attempt < attempts-1:
+                sleep(.1*2**attempt)
+            else:
+                raise

@@ -10,7 +10,7 @@ from smart_open.s3 import parse_uri
 from tqdm import tqdm
 
 from s3mothball.helpers import HashingFile, LoggingTarFile, make_parent_dir, TeeFile, threaded_queue, OffsetSizeFile, \
-    write_dicts_to_csv, read_dicts_from_csv, list_objects, load_object, chunks, exists, peek
+    write_dicts_to_csv, read_dicts_from_csv, list_objects, load_object, chunks, exists, peek, retry_on_exception
 from s3mothball.settings import SPOOLED_FILE_SIZE
 
 
@@ -84,16 +84,22 @@ def write_tar(archive_url, manifest_path, tar_path, strip_prefix=None, progress_
     write_dicts_to_csv(manifest_path, files_written)
 
 
-def validate_tar(manifest_path, tar_path, progress_bar=False):
+def validate_tar(manifest_path, tar_path, progress_bar=False, open_attempts=8):
     """
         Verify that all items listed in manifest_path can be read from tar_path, and all items in tar_path are listed
         in manifest_path, with matching hashes and file names.
+
+        Opening manifest and tar is attempted up to open_attempts times with exponential backoff,
+        because files may not be found if they were just written to S3 by write_tar().
     """
-    csv_entries = sorted(read_dicts_from_csv(manifest_path), key=lambda r: int(r['TarOffset']))
+    def retry(func, *args, **kwargs):
+        return retry_on_exception(func, args, kwargs, exception=IOError, attempts=open_attempts)
+
+    csv_entries = sorted(retry(read_dicts_from_csv, manifest_path), key=lambda r: int(r['TarOffset']))
     if not csv_entries:
         raise ValueError("No entries found in manifest file.")
 
-    with open(tar_path, 'rb', ignore_ext=True) as f:
+    with retry(open, tar_path, 'rb', ignore_ext=True) as f:
         tar_f, raw_f = TeeFile.tee(f)
         tar = TarFile.open(fileobj=tar_f, mode='r|', bufsize=SPOOLED_FILE_SIZE)
         raw_f.read(int(csv_entries[0]['TarOffset']))
